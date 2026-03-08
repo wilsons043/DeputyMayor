@@ -34,12 +34,38 @@ export interface SettingsRecord {
   value: string;
 }
 
+/** Result of a field capture sent to Gemini: social posts + slide content. */
+export interface GeminiCaptureResponse {
+  facebook: string;
+  linkedin: string;
+  x: string;
+  /** Instagram caption (optional for backward compatibility with old captures). */
+  instagram?: string;
+  slideTitle: string;
+  slideBody: string;
+}
+
+export interface FieldCaptureRecord {
+  id?: number;
+  topic: string;
+  /** Description of what's actually happening at the site/event. */
+  description?: string;
+  /** Base64 data URL or raw base64 image data (legacy single photo). */
+  imageBase64?: string;
+  /** Up to 10 photos; used when multiple are uploaded. */
+  imageBase64s?: string[];
+  /** JSON string of GeminiCaptureResponse. */
+  geminiResponse: string;
+  createdAt: number;
+}
+
 // --- Database ---
 
 export class DeputyMayorDB extends Dexie {
   events!: EntityTable<EventRecord, 'id'>;
   recurringEvents!: EntityTable<RecurringEventRecord, 'id'>;
   settings!: EntityTable<SettingsRecord, 'id'>;
+  fieldCaptures!: EntityTable<FieldCaptureRecord, 'id'>;
 
   constructor() {
     super('DeputyMayor2');
@@ -47,6 +73,12 @@ export class DeputyMayorDB extends Dexie {
       events: '++id, date, category',
       recurringEvents: '++id, frequency, category',
       settings: '++id, &key',
+    });
+    this.version(2).stores({
+      events: '++id, date, category',
+      recurringEvents: '++id, frequency, category',
+      settings: '++id, &key',
+      fieldCaptures: '++id, createdAt',
     });
   }
 }
