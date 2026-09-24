@@ -4,16 +4,18 @@ import { FieldCaptureDashboard } from '@/components/FieldCaptureDashboard';
 import { SocialMediaKit } from '@/components/SocialMediaKit';
 import { SlideStudio } from '@/components/SlideStudio';
 import { MasterNewsletter } from '@/components/MasterNewsletter';
+import { MileageTracker } from '@/components/MileageTracker';
 import { Settings } from '@/components/Settings';
 import './App.css';
 
-type ViewId = 'field-capture' | 'social-kit' | 'slide-studio' | 'newsletter' | 'settings';
+type ViewId = 'field-capture' | 'social-kit' | 'slide-studio' | 'newsletter' | 'mileage' | 'settings';
 
 const VIEWS: { id: ViewId; label: string; short: string }[] = [
   { id: 'field-capture', label: 'Field Capture Dashboard', short: 'Field Capture' },
   { id: 'social-kit', label: 'Social Media Kit', short: 'Social Kit' },
   { id: 'slide-studio', label: 'Slide Studio', short: 'Slide Studio' },
   { id: 'newsletter', label: 'Master Newsletter', short: 'Newsletter' },
+  { id: 'mileage', label: 'Mileage Tracker', short: 'Mileage' },
   { id: 'settings', label: 'Settings', short: 'Settings' },
 ];
 
@@ -46,6 +48,7 @@ function AppContent() {
         {view === 'social-kit' && <SocialMediaKit />}
         {view === 'slide-studio' && <SlideStudio />}
         {view === 'newsletter' && <MasterNewsletter />}
+        {view === 'mileage' && <MileageTracker />}
         {view === 'settings' && <Settings />}
       </main>
     </div>

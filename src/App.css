@@ -112,3 +112,63 @@
     padding: 1rem;
   }
 }
+
+/* Mileage Tracker */
+.route-map {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #eef2f7;
+}
+
+@media print {
+  @page {
+    margin: 0.5in;
+  }
+
+  body,
+  .main-content {
+    background: #fff !important;
+  }
+
+  .app-layout {
+    display: block;
+  }
+
+  .sidebar,
+  .no-print {
+    display: none !important;
+  }
+
+  .main-content {
+    padding: 0;
+    overflow: visible;
+  }
+
+  .mileage-tracker > .no-print {
+    display: none !important;
+  }
+
+  .report-page {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-trip-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-trip-maps {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .report-signature {
+    break-inside: avoid;
+  }
+
+  .route-map .leaflet-control-container {
+    display: none;
+  }
+}

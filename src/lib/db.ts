@@ -59,6 +59,69 @@ export interface FieldCaptureRecord {
   createdAt: number;
 }
 
+/** A named location used as a trip origin, destination, or stop. */
+export interface PlaceRecord {
+  id?: number;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  createdAt: number;
+}
+
+/** A point on a trip: saved place or a one-off address. */
+export interface TripStop {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+/** One logged trip with its computed mileage and reimbursement. */
+export interface TripRecord {
+  id?: number;
+  date: string; // ISO date YYYY-MM-DD
+  purpose: string;
+  category: string;
+  origin: TripStop;
+  destination: TripStop;
+  waypoints: TripStop[];
+  roundTrip: boolean;
+  /** Miles for the outbound leg (origin through stops to destination). */
+  oneWayMiles: number;
+  /** Miles claimed: doubled when roundTrip is true, or a manual override. */
+  totalMiles: number;
+  /** Dollars per mile applied to this trip. */
+  ratePerMile: number;
+  rateLabel: string;
+  reimbursement: number;
+  /** Route line as [lat, lng] pairs. */
+  geometry: [number, number][];
+  /** True when the distance is a straight-line estimate, not a road route. */
+  estimated: boolean;
+  /** True when the miles were typed in by hand. */
+  manualMiles: boolean;
+  notes?: string;
+  templateId?: number;
+  createdAt: number;
+}
+
+/** A saved route so a repeat trip can be logged with one click. */
+export interface TripTemplateRecord {
+  id?: number;
+  name: string;
+  purpose: string;
+  category: string;
+  origin: TripStop;
+  destination: TripStop;
+  waypoints: TripStop[];
+  roundTrip: boolean;
+  oneWayMiles: number;
+  geometry: [number, number][];
+  estimated: boolean;
+  createdAt: number;
+}
+
 // --- Database ---
 
 export class DeputyMayorDB extends Dexie {
@@ -66,6 +129,9 @@ export class DeputyMayorDB extends Dexie {
   recurringEvents!: EntityTable<RecurringEventRecord, 'id'>;
   settings!: EntityTable<SettingsRecord, 'id'>;
   fieldCaptures!: EntityTable<FieldCaptureRecord, 'id'>;
+  trips!: EntityTable<TripRecord, 'id'>;
+  places!: EntityTable<PlaceRecord, 'id'>;
+  tripTemplates!: EntityTable<TripTemplateRecord, 'id'>;
 
   constructor() {
     super('DeputyMayor2');
@@ -79,6 +145,15 @@ export class DeputyMayorDB extends Dexie {
       recurringEvents: '++id, frequency, category',
       settings: '++id, &key',
       fieldCaptures: '++id, createdAt',
+    });
+    this.version(3).stores({
+      events: '++id, date, category',
+      recurringEvents: '++id, frequency, category',
+      settings: '++id, &key',
+      fieldCaptures: '++id, createdAt',
+      trips: '++id, date, category, templateId',
+      places: '++id, &name',
+      tripTemplates: '++id, &name',
     });
   }
 }
