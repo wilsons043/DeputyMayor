@@ -12,9 +12,14 @@ import {
   computeReimbursement,
   formatMiles,
   formatMoney,
+  formatRate,
   geocodeAddress,
   irsRateForDate,
+  irsTableCoverageEnd,
   resolveRate,
+  IRS_MILEAGE_RATES,
+  IRS_RATES_URL,
+  IRS_RATES_VERIFIED_ON,
   reverseGeocode,
   roundMiles,
   routeDriving,
@@ -866,8 +871,21 @@ export function MileageTracker() {
                 </div>
                 <div>
                   <div style={muted}>Rate</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{formatMoney(rate.ratePerMile)}/mi</div>
-                  <div style={muted}>{rate.label}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{formatRate(rate.ratePerMile)}/mi</div>
+                  <div style={muted}>
+                    {rate.label}
+                    {rate.source ? ` (${rate.source})` : ''}
+                  </div>
+                  {rate.stale && (
+                    <div style={{ color: '#92400e', fontSize: '0.8125rem', marginTop: '0.25rem' }} role="alert">
+                      This date is past the last IRS rate on file ({formatDate(irsTableCoverageEnd())}). The latest known rate is applied.
+                      Check{' '}
+                      <a href={IRS_RATES_URL} target="_blank" rel="noopener noreferrer">
+                        irs.gov
+                      </a>{' '}
+                      for a newer rate or set a custom rate.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={muted}>Reimbursement</div>
@@ -981,7 +999,7 @@ export function MileageTracker() {
                         </div>
                       </td>
                       <td style={{ padding: '0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMiles(t.totalMiles)}</td>
-                      <td style={{ padding: '0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(t.ratePerMile)}</td>
+                      <td style={{ padding: '0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatRate(t.ratePerMile)}</td>
                       <td style={{ padding: '0.5rem', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatMoney(t.reimbursement)}</td>
                       <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -1092,12 +1110,38 @@ export function MileageTracker() {
                   step="0.001"
                   min="0"
                   style={input}
-                  placeholder={`Leave blank to use the IRS rate (${formatMoney(irsRateForDate(todayIso()).ratePerMile)} today)`}
+                  placeholder={`Leave blank to use the IRS rate (${formatRate(irsRateForDate(todayIso()).ratePerMile)} today)`}
                   value={rateOverride}
                   onChange={(e) => setRateOverride(e.target.value)}
                 />
                 <span style={muted}>Use this if the city reimburses at its own rate. The IRS rate is applied by trip date otherwise.</span>
               </label>
+              <div style={{ ...muted, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.5rem 0.75rem' }}>
+                <div>
+                  <strong>IRS rates on file</strong>, checked against{' '}
+                  <a href={IRS_RATES_URL} target="_blank" rel="noopener noreferrer">
+                    irs.gov
+                  </a>{' '}
+                  on {formatDate(IRS_RATES_VERIFIED_ON)}:
+                </div>
+                <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem' }}>
+                  {[...IRS_MILEAGE_RATES].reverse().slice(0, 4).map((p) => (
+                    <li key={p.start}>
+                      {p.label}: {formatRate(p.ratePerMile)} per mile (
+                      <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer">
+                        {p.source}
+                      </a>
+                      )
+                    </li>
+                  ))}
+                </ul>
+                {todayIso() > irsTableCoverageEnd() && (
+                  <div style={{ color: '#92400e', marginTop: '0.35rem' }} role="alert">
+                    Today is past the last rate on file ({formatDate(irsTableCoverageEnd())}). The IRS may have announced a new rate. Check
+                    irs.gov and update the rate table or set a custom rate.
+                  </div>
+                )}
+              </div>
               <label style={labelCol}>
                 <span style={labelText}>Name on the report</span>
                 <input style={input} value={reportName} onChange={(e) => setReportName(e.target.value)} placeholder="Sean A. Wilson, Mayor" />
@@ -1242,7 +1286,9 @@ export function MileageTracker() {
               <div style={{ flex: '0 1 120px', borderTop: '1px solid #111', paddingTop: '0.25rem' }}>Date</div>
             </div>
             <p style={{ ...muted, marginTop: '1rem' }}>
-              Rates follow the IRS standard mileage rate in effect on each trip date unless a custom rate is set. Distances are
+              Rates follow the IRS standard mileage rate in effect on each trip date unless a custom rate is set (IRS standard
+              mileage rates, irs.gov, checked {formatDate(IRS_RATES_VERIFIED_ON)}
+              {trips.some((t) => t.rateLabel === 'Custom rate') ? '; custom rate applied where noted' : ''}). Distances are
               road routes unless marked estimated. Trips marked estimated used a straight-line distance with a road factor
               because the routing service was unavailable.
             </p>

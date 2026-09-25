@@ -37,18 +37,96 @@ export interface MileageRatePeriod {
   end: string; // inclusive ISO date
   ratePerMile: number; // dollars
   label: string;
+  /** IRS announcement that set the rate. */
+  source: string;
+  sourceUrl: string;
 }
 
+/** IRS page listing every standard mileage rate. Check it when a new rate is announced. */
+export const IRS_RATES_URL = 'https://www.irs.gov/tax-professionals/standard-mileage-rates';
+
+/** Date the table below was last checked against the IRS page. */
+export const IRS_RATES_VERIFIED_ON = '2026-09-25';
+
 /**
- * IRS standard mileage rates for business use. Source: irs.gov standard
- * mileage rates page. Add a new row when the IRS announces a change.
+ * IRS standard mileage rates for business use, exactly as listed at
+ * IRS_RATES_URL. The IRS normally announces the next year's rate in
+ * December and occasionally changes it mid-year, so add a new row (and
+ * update IRS_RATES_VERIFIED_ON) whenever the page changes.
  */
 export const IRS_MILEAGE_RATES: MileageRatePeriod[] = [
-  { start: '2023-01-01', end: '2023-12-31', ratePerMile: 0.655, label: 'IRS 2023 rate' },
-  { start: '2024-01-01', end: '2024-12-31', ratePerMile: 0.67, label: 'IRS 2024 rate' },
-  { start: '2025-01-01', end: '2025-12-31', ratePerMile: 0.7, label: 'IRS 2025 rate' },
-  { start: '2026-01-01', end: '2026-06-30', ratePerMile: 0.725, label: 'IRS 2026 rate (Jan 1 to Jun 30)' },
-  { start: '2026-07-01', end: '2099-12-31', ratePerMile: 0.76, label: 'IRS 2026 rate (Jul 1 onward)' },
+  {
+    start: '2020-01-01',
+    end: '2020-12-31',
+    ratePerMile: 0.575,
+    label: 'IRS 2020 rate',
+    source: 'IR-2019-215',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-issues-standard-mileage-rates-for-2020',
+  },
+  {
+    start: '2021-01-01',
+    end: '2021-12-31',
+    ratePerMile: 0.56,
+    label: 'IRS 2021 rate',
+    source: 'IR-2020-279',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-issues-standard-mileage-rates-for-2021',
+  },
+  {
+    start: '2022-01-01',
+    end: '2022-06-30',
+    ratePerMile: 0.585,
+    label: 'IRS 2022 rate (Jan 1 to Jun 30)',
+    source: 'IR-2021-251',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-issues-standard-mileage-rates-for-2022',
+  },
+  {
+    start: '2022-07-01',
+    end: '2022-12-31',
+    ratePerMile: 0.625,
+    label: 'IRS 2022 rate (Jul 1 to Dec 31)',
+    source: 'IR-2022-124',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-increases-mileage-rate-for-remainder-of-2022',
+  },
+  {
+    start: '2023-01-01',
+    end: '2023-12-31',
+    ratePerMile: 0.655,
+    label: 'IRS 2023 rate',
+    source: 'IR-2022-234',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-issues-standard-mileage-rates-for-2023-business-use-increases-3-cents-per-mile',
+  },
+  {
+    start: '2024-01-01',
+    end: '2024-12-31',
+    ratePerMile: 0.67,
+    label: 'IRS 2024 rate',
+    source: 'IR-2023-239',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-issues-standard-mileage-rates-for-2024-mileage-rate-increases-to-67-cents-a-mile-up-1-point-5-cents-from-2023',
+  },
+  {
+    start: '2025-01-01',
+    end: '2025-12-31',
+    ratePerMile: 0.7,
+    label: 'IRS 2025 rate',
+    source: 'IR-2024-312',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-increases-the-standard-mileage-rate-for-business-use-in-2025-key-rate-increases-3-cents-to-70-cents-per-mile',
+  },
+  {
+    start: '2026-01-01',
+    end: '2026-06-30',
+    ratePerMile: 0.725,
+    label: 'IRS 2026 rate (Jan 1 to Jun 30)',
+    source: 'IR-2025-128',
+    sourceUrl: 'https://www.irs.gov/newsroom/irs-sets-2026-business-standard-mileage-rate-at-725-cents-per-mile-up-25-cents',
+  },
+  {
+    start: '2026-07-01',
+    end: '2026-12-31',
+    ratePerMile: 0.76,
+    label: 'IRS 2026 rate (Jul 1 to Dec 31)',
+    source: 'Announcement 2026-11, IRB 2026-29',
+    sourceUrl: 'https://www.irs.gov/irb/2026-29_irb',
+  },
 ];
 
 /** Settings key: custom rate in dollars per mile. Empty means use the IRS rate. */
@@ -58,26 +136,49 @@ export const SETTINGS_KEY_MILEAGE_REPORT_NAME = 'mileageReportName';
 /** Settings key: organization printed on the mileage report. */
 export const SETTINGS_KEY_MILEAGE_REPORT_ORG = 'mileageReportOrg';
 
-export function irsRateForDate(isoDate: string): MileageRatePeriod {
+export interface ResolvedRate {
+  ratePerMile: number;
+  label: string;
+  source?: string;
+  sourceUrl?: string;
+  /**
+   * True when the date is after the last period in the table. The latest
+   * known rate is applied, but the IRS may have announced a newer one.
+   */
+  stale: boolean;
+}
+
+/** Last date covered by the rate table. Dates after this need a table update. */
+export function irsTableCoverageEnd(): string {
+  return IRS_MILEAGE_RATES[IRS_MILEAGE_RATES.length - 1].end;
+}
+
+export function irsRateForDate(isoDate: string): MileageRatePeriod & { stale: boolean } {
   const found = IRS_MILEAGE_RATES.find((p) => isoDate >= p.start && isoDate <= p.end);
-  if (found) return found;
-  // Dates before the table: use the earliest known rate. After: the latest.
+  if (found) return { ...found, stale: false };
   const first = IRS_MILEAGE_RATES[0];
   const last = IRS_MILEAGE_RATES[IRS_MILEAGE_RATES.length - 1];
-  return isoDate < first.start ? first : last;
+  // Before the table: earliest known rate. After the table: latest rate, flagged.
+  return isoDate < first.start ? { ...first, stale: false } : { ...last, stale: true };
 }
 
 /**
  * Picks the rate to apply for a trip date: a custom override when set,
  * otherwise the IRS rate in effect on that date.
  */
-export function resolveRate(isoDate: string, override?: string | number | null): { ratePerMile: number; label: string } {
+export function resolveRate(isoDate: string, override?: string | number | null): ResolvedRate {
   const parsed = typeof override === 'number' ? override : parseFloat(String(override ?? ''));
   if (!Number.isNaN(parsed) && parsed > 0) {
-    return { ratePerMile: parsed, label: 'Custom rate' };
+    return { ratePerMile: parsed, label: 'Custom rate', stale: false };
   }
   const period = irsRateForDate(isoDate);
-  return { ratePerMile: period.ratePerMile, label: period.label };
+  return {
+    ratePerMile: period.ratePerMile,
+    label: period.label,
+    source: period.source,
+    sourceUrl: period.sourceUrl,
+    stale: period.stale,
+  };
 }
 
 export function computeReimbursement(miles: number, ratePerMile: number): number {
@@ -128,6 +229,13 @@ export function simplifyGeometry(coords: [number, number][], maxPoints = 400): [
 
 export function formatMoney(amount: number): string {
   return amount.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+
+/** Dollars per mile with fractional cents kept, for example $0.725 or $0.76. */
+export function formatRate(ratePerMile: number): string {
+  const cents = Math.round(ratePerMile * 1000) / 10;
+  const text = Number.isInteger(cents) ? ratePerMile.toFixed(2) : ratePerMile.toFixed(3);
+  return `$${text}`;
 }
 
 export function formatMiles(miles: number): string {
